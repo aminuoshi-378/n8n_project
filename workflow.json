@@ -1,0 +1,133 @@
+{
+  "name": "客户咨询分类器",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "nicehole",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-208, -32],
+      "name": "Webhook"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "alibabaCloudApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"qwen-turbo\",\n  \"input\": {\n    \"messages\": [\n      {\n        \"role\": \"user\",\n        \"content\": \"你是一名专业销售分析师，分析客户咨询的意向等级。\\n\\n判断标准：\\n- 高：明确表达购买意向、问价格、问下单方式、预约试用\\n- 中：咨询产品功能、使用方法、适用场景\\n- 低：闲聊、与产品无关、投诉已购买产品\\n\\n要求：严格只返回高、中、低三个字中的一个。不要返回任何其他内容，不要解释，不要标点，不要引号。\\n\\n咨询内容：{{ $json.body.message }}\"\n      }\n    ]\n  }\n}"
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [64, -32],
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.output.text }}",
+              "rightValue": "高",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [272, -32],
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "fromEmail": "",
+        "toEmail": "",
+        "subject": "高意向用户咨询",
+        "emailFormat": "text",
+        "text": "=有高意向客户！\n\n咨询内容：{{ $node[\"Webhook\"].json.body.message }}\n客户联系方式：{{ $node[\"Webhook\"].json.body.contact }}\n\n请尽快联系！"
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [480, -112],
+      "name": "Send an Email"
+    },
+    {
+      "parameters": {
+        "fromEmail": "",
+        "toEmail": "={{ $node[\"Webhook\"].json.body.email }}",
+        "subject": "感谢您的咨询 - 我们会尽快回复",
+        "emailFormat": "text",
+        "text": "您好，已收到您的咨询，我们会尽快回复您！"
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [480, 64],
+      "name": "Send an Email1"
+    }
+  ],
+  "connections": {
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send an Email",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send an Email1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "tags": []
+}
